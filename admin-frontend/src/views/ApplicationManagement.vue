@@ -92,7 +92,7 @@
           <tr>
             <th>ID</th>
             <th>职位名称</th>
-            <th>申请人邮箱</th>
+            <th>申请人</th>
             <th>申请状态</th>
             <th>申请时间</th>
             <th>操作</th>
@@ -102,7 +102,35 @@
           <tr v-for="application in paginatedApplications" :key="application.id" class="application-row">
             <td>{{ application.id }}</td>
             <td>{{ application.jobName }}</td>
-            <td>{{ application.email }}</td>
+            <td class="applicant-info">
+              <div class="applicant-cell">
+                <div class="avatar-container">
+                  <img 
+                    v-if="application.avatarUrl" 
+                    :src="application.avatarUrl" 
+                    alt="申请人头像"
+                    class="applicant-avatar"
+                    @error="application.avatarUrl = null"
+                  />
+                  <div v-else class="avatar-placeholder">
+                    <i class="fas fa-user"></i>
+                  </div>
+                </div>
+                <div class="applicant-details">
+                  <span class="applicant-email">{{ application.email }}</span>
+                  <div class="applicant-actions">
+                    <button
+                      @click="viewResume(application.email)"
+                      class="resume-button"
+                      title="查看简历"
+                    >
+                      <i class="fas fa-file-pdf"></i>
+                      查看简历
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </td>
             <td>
               <span class="status-badge" :class="getStatusClass(application.jobState)">
                 {{ getStatusText(application.jobState) }}
@@ -155,11 +183,48 @@
         </button>
       </div>
     </div>
+
+    <!-- PDF预览弹窗 -->
+    <div v-if="showPdfModal" class="pdf-modal-overlay" @click="closePdfModal">
+      <div class="pdf-modal" @click.stop>
+        <div class="pdf-modal-header">
+          <div class="pdf-modal-title">
+            <i class="fas fa-file-pdf"></i>
+            <span>{{ currentApplicantEmail }} 的简历</span>
+          </div>
+          <div class="pdf-modal-actions">
+            <button @click="downloadResume(currentApplicantEmail)" class="download-btn">
+              <i class="fas fa-download"></i>
+              下载
+            </button>
+            <button @click="closePdfModal" class="close-btn">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        </div>
+        
+        <div class="pdf-modal-content">
+          <div v-if="pdfLoading" class="pdf-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>正在加载简历...</span>
+          </div>
+          
+          <div v-else-if="pdfUrl" class="pdf-viewer">
+            <iframe 
+              :src="pdfUrl" 
+              class="pdf-iframe"
+              title="简历预览"
+              @load="pdfLoading = false"
+            ></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAdminStore } from '@/stores/admin'
 import axios from 'axios'
@@ -174,6 +239,12 @@ const selectedState = ref('all')
 const searchKeyword = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
+
+// PDF预览弹窗相关状态
+const showPdfModal = ref(false)
+const pdfUrl = ref('')
+const currentApplicantEmail = ref('')
+const pdfLoading = ref(false)
 
 // 统计数据
 const stats = ref({
@@ -223,6 +294,13 @@ const fetchApplications = async () => {
     })
     
     applications.value = response.data.data
+    
+    // 初始化头像URL字段并加载头像
+    applications.value.forEach(app => {
+      app.avatarUrl = null
+      loadAvatar(app.email, app)
+    })
+    
     updateStats()
   } catch (error) {
     console.error('获取投递信息失败:', error)
@@ -324,6 +402,112 @@ const formatDate = (timestamp) => {
   return new Date(parseInt(timestamp)).toLocaleDateString('zh-CN')
 }
 
+// 加载用户头像
+const loadAvatar = async (email, application) => {
+  try {
+    const response = await axios.get('http://localhost:8080/admin/userinfo/Image', {
+      params: { email },
+      headers: { Authorization: adminStore.token },
+      responseType: 'blob'
+    })
+    
+    if (response.data && response.data.size > 0) {
+      const imageUrl = URL.createObjectURL(response.data)
+      application.avatarUrl = imageUrl
+    }
+  } catch (error) {
+    console.log(`用户 ${email} 无头像或头像加载失败:`, error)
+    application.avatarUrl = null
+  }
+}
+
+// 查看简历
+const viewResume = async (email) => {
+  pdfLoading.value = true
+  currentApplicantEmail.value = email
+  
+  try {
+    const response = await axios.get('http://localhost:8080/admin/userinfo/resume', {
+      params: { email },
+      headers: { Authorization: adminStore.token },
+      responseType: 'blob'
+    })
+    
+    if (response.data && response.data.size > 0) {
+      // 创建PDF预览URL
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      pdfUrl.value = URL.createObjectURL(blob)
+      showPdfModal.value = true
+    } else {
+      alert('该用户暂无简历')
+    }
+  } catch (error) {
+    console.error('查看简历失败:', error)
+    if (error.response?.status === 404) {
+      alert('该用户暂无简历')
+    } else {
+      alert('查看简历失败，请稍后重试')
+    }
+  } finally {
+    pdfLoading.value = false
+  }
+}
+
+// 下载简历
+const downloadResume = async (email) => {
+  try {
+    const response = await axios.get('http://localhost:8080/admin/userinfo/resume', {
+      params: { email },
+      headers: { Authorization: adminStore.token },
+      responseType: 'blob'
+    })
+    
+    if (response.data && response.data.size > 0) {
+      // 创建下载链接
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      
+      // 设置文件名
+      link.href = url
+      link.download = `${email}_简历.pdf`
+      
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      window.URL.revokeObjectURL(url)
+    } else {
+      alert('该用户暂无简历')
+    }
+  } catch (error) {
+    console.error('下载简历失败:', error)
+    if (error.response?.status === 404) {
+      alert('该用户暂无简历')
+    } else {
+      alert('下载简历失败，请稍后重试')
+    }
+  }
+}
+
+// 关闭PDF预览弹窗
+const closePdfModal = () => {
+  // 清理URL对象避免内存泄漏
+  if (pdfUrl.value) {
+    URL.revokeObjectURL(pdfUrl.value)
+  }
+  
+  showPdfModal.value = false
+  pdfUrl.value = ''
+  currentApplicantEmail.value = ''
+}
+
+// 键盘事件处理
+const handleKeydown = (event) => {
+  if (event.key === 'Escape' && showPdfModal.value) {
+    closePdfModal()
+  }
+}
+
 // 生命周期
 onMounted(() => {
   if (!adminStore.isLoggedIn) {
@@ -331,6 +515,19 @@ onMounted(() => {
     return
   }
   fetchApplications()
+  
+  // 添加键盘事件监听
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  // 清理键盘事件监听
+  window.removeEventListener('keydown', handleKeydown)
+  
+  // 清理PDF URL对象
+  if (pdfUrl.value) {
+    URL.revokeObjectURL(pdfUrl.value)
+  }
 })
 </script>
 
@@ -658,6 +855,262 @@ onMounted(() => {
   .applications-table th,
   .applications-table td {
     padding: 0.5rem;
+  }
+  
+  .applicant-cell {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .applicant-details {
+    text-align: center;
+  }
+  
+  .resume-button {
+    width: 100%;
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+  }
+}
+
+/* 申请人头像和信息样式 */
+.applicant-info {
+  width: 200px;
+}
+
+.applicant-cell {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.avatar-container {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.applicant-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1rem;
+}
+
+.applicant-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.applicant-email {
+  font-weight: 600;
+  color: #4a5568;
+  font-size: 0.9rem;
+}
+
+.applicant-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.resume-button {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+.resume-button:hover {
+  background: linear-gradient(135deg, #ea580c, #dc2626);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+}
+
+.resume-button i {
+  font-size: 0.75rem;
+}
+
+/* PDF预览弹窗样式 */
+.pdf-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+}
+
+.pdf-modal {
+  width: 90%;
+  height: 90%;
+  max-width: 1200px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pdf-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.pdf-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 600;
+  color: #4a5568;
+  font-size: 1.1rem;
+}
+
+.pdf-modal-title i {
+  color: #dc3545;
+  font-size: 1.2rem;
+}
+
+.pdf-modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.download-btn {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #38a169, #2f855a);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.download-btn:hover {
+  background: linear-gradient(135deg, #2f855a, #276749);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(56, 161, 105, 0.3);
+}
+
+.close-btn {
+  width: 40px;
+  height: 40px;
+  background: #e2e8f0;
+  color: #4a5568;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.close-btn:hover {
+  background: #cbd5e0;
+  transform: translateY(-1px);
+}
+
+.pdf-modal-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.pdf-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  color: #718096;
+  font-size: 1rem;
+}
+
+.pdf-loading i {
+  font-size: 2rem;
+  color: #667eea;
+}
+
+.pdf-viewer {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.pdf-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 0 0 12px 12px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .pdf-modal {
+    width: 95%;
+    height: 95%;
+  }
+  
+  .pdf-modal-header {
+    padding: 0.75rem 1rem;
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+  
+  .pdf-modal-actions {
+    justify-content: space-between;
+  }
+  
+  .pdf-modal-title {
+    font-size: 1rem;
+    justify-content: center;
+  }
+  
+  .download-btn {
+    flex: 1;
+    justify-content: center;
   }
 }
 </style>

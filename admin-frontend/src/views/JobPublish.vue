@@ -1,6 +1,10 @@
 <template>
   <div class="job-publish-container">
     <div class="page-header">
+      <button @click="goBack" class="back-button">
+        <i class="fas fa-arrow-left"></i>
+        返回
+      </button>
       <h1 class="page-title">发布招聘信息</h1>
       <p class="page-subtitle">填写职位信息并发布到招聘平台</p>
     </div>
@@ -200,6 +204,10 @@ const handleSubmit = async () => {
   }
 }
 
+const goBack = () => {
+  router.push('/jobs')
+}
+
 onMounted(() => {
   // 检查登录状态
   if (!adminStore.isLoggedIn) {
@@ -233,6 +241,37 @@ onMounted(() => {
   margin-bottom: 3rem;
   position: relative;
   z-index: 1;
+}
+
+.back-button {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 0.75rem 1.5rem;
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  color: #4a5568;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  backdrop-filter: blur(10px);
+}
+
+.back-button:hover {
+  background: rgba(255, 255, 255, 1);
+  border-color: #667eea;
+  color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.15);
+}
+
+.back-button i {
+  font-size: 0.875rem;
 }
 
 .page-title {
@@ -432,6 +471,19 @@ onMounted(() => {
 @media (max-width: 768px) {
   .job-publish-container {
     padding: 1rem;
+  }
+  
+  .page-header {
+    padding-top: 60px;
+  }
+  
+  .back-button {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 100;
+    font-size: 0.875rem;
+    padding: 0.625rem 1.25rem;
   }
   
   .form-container {
