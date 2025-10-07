@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GET Request Example</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body>
+<h1>Axios GET Request Example</h1>
+<button id="getRequestButton">Get User Info</button>
+<pre id="response"></pre>
+
+<script>
+    document.getElementById("getRequestButton").addEventListener("click",function(){
+        axios({
+            headers:{
+                authorization:"eyJhbGciOiJIUzU" +
+                    "xMiJ9.eyJzdWIiOiJ1c2VyIiwiZW1haWwiOiJ" +
+                    "5b25nY2hlbmdsaW5AcHJvdG9uLm1lIiwicm9sZSI6I" +
+                    "nVzZXIiLCJpYXQiOjE3NDQ5OTA1MDIsImV4cCI6MTc0NTA3N" +
+                    "jkwMn0.8NFOf2ZYp228OqtDbLJt8rhsO14-0gerOrMY2YdWFNrLvHB5zX7OjTi1H8W1r7Szdd2ThtDbA0lUhPUTJaPPTw"
+            },
+            method:"GET",
+            url:"http://127.0.0.1:8080/user/userinfo",
+
+        }).then(response=>{
+            console.log(response.data.data.phone )
+        })
+    })
+</script>
+</body>
+</html>

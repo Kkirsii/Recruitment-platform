@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>电子烟研究数据可视化</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.4/xlsx.full.min.js"></script>
+    <style>
+        .chart-box {
+            width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+        }
+        button {
+            padding: 10px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<!-- 图1：回归系数 -->
+<div class="chart-box">
+    <canvas id="regressionChart"></canvas>
+    <button onclick="exportRegressionData()">导出回归数据 (Excel)</button>
+</div>
+
+<!-- 图2：广告吸引力 -->
+<div class="chart-box">
+    <canvas id="adChart"></canvas>
+    <button onclick="exportAdData()">导出广告数据 (Excel)</button>
+</div>
+
+<script>
+    // 图1数据
+    const regressionData = {
+        labels: ['广告吸引力', '成瘾性认知', '替代烟草使用', '尝试过电子烟', '态度', '社会规范', '性别', '曾吸烟'],
+        datasets: [{
+            label: '标准化回归系数 (β)',
+            data: [0.27, 0.21, 0.37, 0.55, 0.10, 0.08, 0.05, 0.03],
+            backgroundColor: ['#ff6384','#ff6384','#ff6384','#ff6384','#cccccc','#cccccc','#cccccc','#cccccc']
+        }]
+    };
+
+    // 图2数据
+    const adData = {
+        labels: ['Blu', 'Mystic', 'Njoy'],
+        datasets: [{
+            label: '广告吸引力得分 (均值±标准差)',
+            data: [20.0, 15.4, 15.9],
+            backgroundColor: ['#36a2eb','#ffce56','#4bc0c0'],
+            errorBars: {
+                Blu: {plus: 8.1, minus: 8.1},
+                Mystic: {plus: 6.7, minus: 6.7},
+                Njoy: {plus: 8.4, minus: 8.4}
+            }
+        }]
+    };
+
+    // 初始化图表
+    new Chart(document.getElementById('regressionChart'), {
+        type: 'bar',
+        data: regressionData,
+        options: {
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    new Chart(document.getElementById('adChart'), {
+        type: 'bar',
+        data: adData,
+        options: {
+            scales: { y: { beginAtZero: true } },
+            plugins: {
+                errorBars: {
+                    lineWidth: 2,
+                    color: 'rgba(0,0,0,0.8)'
+                }
+            }
+        }
+    });
+
+    // Excel导出功能
+    function exportRegressionData() {
+        const wsData = [
+            ['变量', '标准化回归系数 (β)', '显著性'],
+            ['广告吸引力', 0.27, 'p < 0.01'],
+            ['成瘾性认知', 0.21, 'p < 0.01'],
+            ['替代烟草使用', 0.37, 'p < 0.01'],
+            ['尝试过电子烟', 0.55, 'p < 0.01'],
+            ['态度', 0.10, '不显著'],
+            ['社会规范', 0.08, '不显著'],
+            ['性别', 0.05, '不显著'],
+            ['曾吸烟', 0.03, '不显著']
+        ];
+        exportExcel(wsData, '回归分析数据.xlsx');
+    }
+
+    function exportAdData() {
+        const wsData = [
+            ['广告品牌', '均值', '标准差'],
+            ['Blu', 20.0, 8.1],
+            ['Mystic', 15.4, 6.7],
+            ['Njoy', 15.9, 8.4]
+        ];
+        exportExcel(wsData, '广告吸引力数据.xlsx');
+    }
+
+    function exportExcel(data, fileName) {
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+        XLSX.writeFile(wb, fileName);
+    }
+</script>
+
+</body>
+</html>

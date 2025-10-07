@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8" />
+    <title>聊天室</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f7f7;
+            margin: 0;
+            padding: 0;
+        }
+
+        #chat-container {
+            max-width: 600px;
+            margin: 30px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        #messages {
+            list-style-type: none;
+            padding: 0;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+
+        #messages li {
+            padding: 8px 12px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+        }
+
+        .sent {
+            background-color: #d1e7dd;
+            align-self: flex-end;
+            text-align: right;
+        }
+
+        .received {
+            background-color: #f8d7da;
+            align-self: flex-start;
+            text-align: left;
+        }
+
+        #input-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        input[type="text"], input[type="number"] {
+            flex: 1;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            background-color: #0d6efd;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0b5ed7;
+        }
+    </style>
+</head>
+<body>
+<div id="chat-container">
+    <h2>聊天室</h2>
+
+    <div id="user-id-select">
+        <input type="number" id="userId" placeholder="你的用户ID" />
+        <button onclick="connect()">连接聊天室</button>
+    </div>
+
+    <ul id="messages"></ul>
+
+    <div id="input-container" style="display: none;">
+        <input type="text" id="toUserId" placeholder="接收者用户ID">
+        <input type="text" id="messageInput" placeholder="输入消息...">
+        <button onclick="sendMessage()">发送</button>
+    </div>
+</div>
+
+<script>
+    let socket = null;
+    let currentUserId = null;
+
+    function connect() {
+        currentUserId = document.getElementById('userId').value;
+        if (!currentUserId) {
+            alert("请输入你的用户ID");
+            return;
+        }
+
+        socket = new WebSocket(`ws://localhost:8080/chat?userId=${currentUserId}`);
+
+        socket.onopen = function () {
+            console.log("连接已建立");
+            document.getElementById('input-container').style.display = 'flex';
+            document.getElementById('user-id-select').style.display = 'none';
+        };
+
+        socket.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            appendMessage(data.content, 'received');
+        };
+
+        socket.onclose = function () {
+            alert("连接已关闭");
+            document.getElementById('input-container').style.display = 'none';
+        };
+
+        socket.onerror = function (e) {
+            console.error("WebSocket 错误:", e);
+        };
+    }
+
+    function sendMessage() {
+        const toUserId = document.getElementById('toUserId').value;
+        const content = document.getElementById('messageInput').value;
+        if (!toUserId || !content) return;
+
+        const msg = {
+            fromUserId: currentUserId,
+            toUserId: toUserId,
+            content: content
+        };
+
+        socket.send(JSON.stringify(msg));
+        appendMessage(content, 'sent');
+        document.getElementById('messageInput').value = '';
+    }
+
+    function appendMessage(message, type) {
+        const li = document.createElement('li');
+        li.textContent = message;
+        li.className = type;
+        document.getElementById('messages').appendChild(li);
+    }
+</script>
+</body>
+</html>
