@@ -41,6 +41,19 @@
 - **功能**: 文件上传下载服务
 - **配置**: YAML
 
+## 🔄 招聘流程
+
+### 完整招聘流程
+1. **简历投递** (状态: 0) - 求职者投递简历
+2. **简历筛选** (状态: 1) - 管理员通过简历筛选
+3. **面试邀请** (状态: 2) - 发送面试邀请邮件
+4. **面试通过** (状态: 3) - 面试通过待录用
+5. **录用通知** (状态: 6) - 发送录用通知邮件
+
+### 其他状态
+- **不匹配** (状态: 4) - 候选人不符合要求
+- **放弃申请** (状态: 5) - 候选人主动放弃
+
 ## 🚀 功能特性
 
 ### 用户端功能
@@ -49,13 +62,16 @@
 - 🔍 **职位浏览**: 查看职位列表、搜索筛选
 - 📄 **职位详情**: 查看职位详细信息
 - 📤 **简历投递**: 一键投递简历
+- 📊 **投递状态**: 查看投递进度和状态
 - 💬 **实时聊天**: WebSocket在线聊天功能
 
 ### 管理员端功能
 - 🔐 **管理员登录**: 安全的管理员认证
-- 📊 **数据统计**: 职位数量、投递统计等
+- 📊 **数据统计**: 职位数量、投递统计、录用统计等
 - 📋 **职位管理**: 发布、编辑、删除职位
 - 📥 **投递管理**: 查看、审核简历投递
+- 🔄 **流程管理**: 简历筛选、面试邀请、录用通知
+- 📧 **邮件通知**: 自动发送面试邀请和录用通知
 - 📈 **仪表板**: 数据可视化展示
 
 ### 通用功能
@@ -63,6 +79,7 @@
 - 📁 **文件管理**: 图片、简历文件上传下载
 - 💾 **数据持久化**: MySQL数据库存储
 - ⚡ **性能优化**: Redis缓存
+- 📧 **邮件服务**: 面试邀请和录用通知邮件
 - 📱 **响应式设计**: 支持多设备访问
 
 ## 📁 项目结构
@@ -147,6 +164,27 @@ npm run dev
 - 后端API: http://localhost:8080
 - 文件服务器: http://localhost:8080
 
+### 一键启动脚本
+项目提供了便捷的启动脚本：
+
+**Windows用户:**
+```bash
+# 启动前端服务
+start_frontend.bat
+
+# 停止前端服务
+stop_frontend.bat
+```
+
+**Linux/Mac用户:**
+```bash
+# 启动前端服务
+./start_frontend.sh
+
+# 停止前端服务
+./stop_frontend.sh
+```
+
 ## 🔧 配置说明
 
 ### 数据库配置
@@ -173,6 +211,19 @@ Path:
   Resume: "/path/to/resumes"
 ```
 
+### 邮件服务配置
+在 `application.properties` 中配置邮件服务：
+
+```properties
+# 邮件服务配置
+spring.mail.host=smtp.qq.com
+spring.mail.port=587
+spring.mail.username=your_email@qq.com
+spring.mail.password=your_email_password
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+```
+
 ## 📋 API 接口
 
 ### 用户接口
@@ -182,6 +233,7 @@ Path:
 - `GET /jobs` - 获取职位列表
 - `GET /jobs/{id}` - 获取职位详情
 - `POST /jobs/{id}/apply` - 投递简历
+- `GET /user/job/get_submitState` - 获取投递状态
 
 ### 管理员接口
 - `POST /admin/login` - 管理员登录
@@ -190,6 +242,12 @@ Path:
 - `GET /admin/job/submitlist` - 获取投递列表
 - `PUT /admin/job/{id}` - 更新职位
 - `DELETE /admin/job/{id}` - 删除职位
+- `PUT /admin/userinfo/push_1` - 通过简历筛选
+- `PUT /admin/userinfo/send_invitation` - 发送面试邀请
+- `PUT /admin/userinfo/push_3` - 面试通过
+- `PUT /admin/userinfo/send_offer` - 发送录用通知
+- `PUT /admin/userinfo/push_4` - 标记不匹配
+- `PUT /admin/userinfo/push_5` - 标记放弃申请
 
 ### WebSocket接口
 - `ws://localhost:8080/chat` - 实时聊天
@@ -201,6 +259,7 @@ Path:
 - 个人资料管理
 - 职位浏览和搜索
 - 职位详情查看
+- 投递状态跟踪
 - 实时聊天界面
 
 ### 管理员端
@@ -208,6 +267,8 @@ Path:
 - 数据统计仪表板
 - 职位发布和管理
 - 投递审核管理
+- 面试邀请表单
+- 招聘流程管理
 
 ## 🔒 安全特性
 
@@ -226,6 +287,16 @@ Path:
 - `jobs` - 职位信息表
 - `user_profiles` - 用户档案表
 - `submit_states` - 投递状态表
+- `invitation_info` - 面试邀请信息表
+
+### 投递状态说明
+- `0` - 简历筛选中
+- `1` - 待发送面试邀请
+- `2` - 已发送面试邀请
+- `3` - 面试通过待录用
+- `4` - 不匹配
+- `5` - 放弃申请
+- `6` - 已录用
 
 ## 🚀 部署说明
 

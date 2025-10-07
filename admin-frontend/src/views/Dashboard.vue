@@ -35,11 +35,11 @@
 
         <div class="stat-card">
           <div class="stat-icon">
-            <i class="fas fa-check-circle"></i>
+            <i class="fas fa-user-check"></i>
           </div>
           <div class="stat-content">
-            <h3>通过数</h3>
-            <p class="stat-number">{{ stats.approvedApplications }}</p>
+            <h3>录用数</h3>
+            <p class="stat-number">{{ stats.hiredApplications }}</p>
           </div>
         </div>
 
@@ -48,7 +48,7 @@
             <i class="fas fa-clock"></i>
           </div>
           <div class="stat-content">
-            <h3>待审核</h3>
+            <h3>进行中</h3>
             <p class="stat-number">{{ stats.pendingApplications }}</p>
           </div>
         </div>
@@ -104,7 +104,7 @@ const adminStore = useAdminStore()
 const stats = ref({
   totalJobs: 0,
   totalApplications: 0,
-  approvedApplications: 0,
+  hiredApplications: 0,
   pendingApplications: 0
 })
 
@@ -125,8 +125,8 @@ const fetchStats = async () => {
     
     const applications = applicationsResponse.data.data
     stats.value.totalApplications = applications.length
-    stats.value.approvedApplications = applications.filter(app => app.state === 1).length
-    stats.value.pendingApplications = applications.filter(app => app.state === 0).length
+    stats.value.hiredApplications = applications.filter(app => app.jobState === 6).length
+    stats.value.pendingApplications = applications.filter(app => app.jobState === 0 || app.jobState === 1 || app.jobState === 2 || app.jobState === 3).length
   } catch (error) {
     console.error('获取统计数据失败:', error)
     if (error.response?.status === 401) {

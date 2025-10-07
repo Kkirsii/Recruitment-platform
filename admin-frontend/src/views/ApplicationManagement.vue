@@ -58,8 +58,13 @@
         <label for="stateFilter">状态筛选:</label>
         <select id="stateFilter" v-model="selectedState" @change="filterApplications">
           <option value="all">全部</option>
-          <option value="0">待审核</option>
-          <option value="1">已通过</option>
+          <option value="0">简历筛选中</option>
+          <option value="1">待发送面试邀请</option>
+          <option value="2">已发送面试邀请</option>
+          <option value="3">面试通过</option>
+          <option value="4">不匹配</option>
+          <option value="5">放弃申请</option>
+          <option value="6">已录用</option>
         </select>
       </div>
       
@@ -138,23 +143,80 @@
             </td>
             <td>{{ formatDate(application.submitTime) }}</td>
             <td class="actions">
+              <!-- 流程推进按钮 -->
+              <div class="action-buttons">
+                <!-- 简历筛选中 -> 待发送面试邀请 -->
               <button
                 v-if="application.jobState === 0"
-                @click="approveApplication(application.id)"
+                  @click="pushToState1(application.email, application.jobId)"
+                  class="action-button push-state primary"
+                  title="通过简历筛选"
+                >
+                  <i class="fas fa-check-circle"></i>
+                  通过筛选
+                </button>
+                
+                <!-- 待发送面试邀请 -> 已发送面试邀请 -->
+                <button
+                  v-if="application.jobState === 1"
+                  @click="showInterviewForm(application.email, application.jobId, application.jobName)"
+                  class="action-button interview-invite"
+                  title="发送面试邀请"
+                >
+                  <i class="fas fa-calendar-check"></i>
+                  发送面试邀请
+                </button>
+                
+                <!-- 已发送面试邀请 -> 面试通过 -->
+                <button
+                  v-if="application.jobState === 2"
+                  @click="pushToState3(application.email, application.jobId)"
                 class="action-button approve"
-                title="通过申请"
+                  title="面试通过"
               >
                 <i class="fas fa-check"></i>
+                  面试通过
               </button>
+                
+                <!-- 面试通过 -> 已录用 -->
               <button
-                v-if="application.jobState === 0"
-                @click="rejectApplication(application.id)"
+                  v-if="application.jobState === 3"
+                  @click="pushToState6(application.email, application.jobId)"
+                  class="action-button hire"
+                  title="发送录用通知"
+                >
+                  <i class="fas fa-user-check"></i>
+                  发送录用通知
+                </button>
+                
+                <!-- 拒绝按钮 -->
+                <button
+                  v-if="application.jobState === 0 || application.jobState === 1 || application.jobState === 2"
+                  @click="pushToState4(application.email, application.jobId)"
                 class="action-button reject"
-                title="拒绝申请"
+                  title="不匹配"
               >
                 <i class="fas fa-times"></i>
+                  不匹配
               </button>
-              <span v-if="application.jobState === 1" class="approved-text">已处理</span>
+                
+                <!-- 放弃申请按钮 -->
+                <button
+                  v-if="application.jobState === 1 || application.jobState === 2"
+                  @click="pushToState5(application.email, application.jobId)"
+                  class="action-button abandon"
+                  title="放弃申请"
+                >
+                  <i class="fas fa-user-slash"></i>
+                  放弃申请
+                </button>
+              </div>
+              
+              <!-- 最终状态显示 -->
+              <span v-if="application.jobState === 3" class="final-status approved">面试通过待录用</span>
+              <span v-if="application.jobState === 4" class="final-status rejected">不匹配</span>
+              <span v-if="application.jobState === 5" class="final-status abandoned">放弃申请</span>
+              <span v-if="application.jobState === 6" class="final-status hired">已录用</span>
             </td>
           </tr>
         </tbody>
@@ -181,6 +243,88 @@
         >
           <i class="fas fa-chevron-right"></i>
         </button>
+      </div>
+    </div>
+
+    <!-- 面试邀请表单弹窗 -->
+    <div v-if="showInterviewModal" class="modal-overlay" @click="closeInterviewModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3 class="modal-title">
+            <i class="fas fa-calendar-check"></i>
+            发送面试邀请
+          </h3>
+          <button @click="closeInterviewModal" class="modal-close">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="interview-info">
+            <p><strong>申请人:</strong> {{ currentInterviewEmail }}</p>
+            <p><strong>职位:</strong> {{ currentInterviewJobName }}</p>
+          </div>
+          
+          <form @submit.prevent="sendInterviewInvitation" class="interview-form">
+            <div class="form-group">
+              <label for="interviewDate">面试日期:</label>
+              <input
+                id="interviewDate"
+                type="date"
+                v-model="interviewForm.date"
+                required
+                class="form-input"
+              />
+            </div>
+            
+            <div class="form-group">
+              <label for="interviewTime">面试时间:</label>
+              <input
+                id="interviewTime"
+                type="time"
+                v-model="interviewForm.time"
+                required
+                class="form-input"
+              />
+            </div>
+            
+            <div class="form-group">
+              <label for="interviewLocation">面试地点:</label>
+              <input
+                id="interviewLocation"
+                type="text"
+                v-model="interviewForm.location"
+                placeholder="请输入面试地点"
+                required
+                class="form-input"
+              />
+            </div>
+            
+            <div class="form-group">
+              <label for="interviewType">面试方式:</label>
+              <select
+                id="interviewType"
+                v-model="interviewForm.type"
+                class="form-input"
+              >
+                <option value="现场面试">现场面试</option>
+                <option value="视频面试">视频面试</option>
+                <option value="电话面试">电话面试</option>
+              </select>
+            </div>
+            
+            <div class="form-actions">
+              <button type="button" @click="closeInterviewModal" class="cancel-btn">
+                取消
+              </button>
+              <button type="submit" class="send-btn" :disabled="isSendingInvitation">
+                <i v-if="isSendingInvitation" class="fas fa-spinner fa-spin"></i>
+                <i v-else class="fas fa-paper-plane"></i>
+                {{ isSendingInvitation ? '发送中...' : '发送邀请' }}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
 
@@ -245,6 +389,19 @@ const showPdfModal = ref(false)
 const pdfUrl = ref('')
 const currentApplicantEmail = ref('')
 const pdfLoading = ref(false)
+
+// 面试邀请表单相关状态
+const showInterviewModal = ref(false)
+const currentInterviewEmail = ref('')
+const currentInterviewJobId = ref(null)
+const currentInterviewJobName = ref('')
+const isSendingInvitation = ref(false)
+const interviewForm = ref({
+  date: '',
+  time: '',
+  location: '',
+  type: '现场面试'
+})
 
 // 统计数据
 const stats = ref({
@@ -316,52 +473,227 @@ const fetchApplications = async () => {
 const updateStats = () => {
   stats.value.total = applications.value.length
   stats.value.pending = applications.value.filter(app => app.jobState === 0).length
-  stats.value.approved = applications.value.filter(app => app.jobState === 1).length
+  stats.value.approved = applications.value.filter(app => app.jobState === 6).length
 }
 
 const filterApplications = () => {
   currentPage.value = 1 // 重置到第一页
 }
 
-const approveApplication = async (id) => {
+// 流程推进方法
+const pushToState1 = async (email, jobId) => {
+  // 确认操作
+  if (!confirm('确定要通过该候选人的简历筛选吗？')) {
+    return
+  }
+  
   try {
-    await axios.put('http://localhost:8080/admin/job/submitlist', null, {
-      params: { id, state: 1 },
+    await axios.put(`http://localhost:8080/admin/userinfo/push_1?email=${email}&jobId=${jobId}`, null, {
       headers: { Authorization: adminStore.token }
     })
     
     // 更新本地数据
-    const application = applications.value.find(app => app.id === id)
+    const application = applications.value.find(app => app.email === email && app.jobId === jobId)
     if (application) {
       application.jobState = 1
       updateStats()
     }
     
-    alert('申请已通过')
+    alert('✅ 简历筛选通过成功！候选人已进入待面试阶段')
   } catch (error) {
-    console.error('通过申请失败:', error)
-    alert('操作失败，请稍后重试')
+    console.error('推进状态失败:', error)
+    if (error.response?.status === 401) {
+      adminStore.logout()
+      router.push('/login')
+    } else {
+      alert('❌ 操作失败，请稍后重试')
+    }
   }
 }
 
-const rejectApplication = async (id) => {
+const pushToState3 = async (email, jobId) => {
+  // 确认操作
+  if (!confirm('确定要标记该候选人为面试通过吗？')) {
+    return
+  }
+  
   try {
-    await axios.put('http://localhost:8080/admin/job/submitlist', null, {
-      params: { id, state: -1 },
+    await axios.put(`http://localhost:8080/admin/userinfo/push_3?email=${email}&jobId=${jobId}`, null, {
       headers: { Authorization: adminStore.token }
     })
     
     // 更新本地数据
-    const application = applications.value.find(app => app.id === id)
+    const application = applications.value.find(app => app.email === email && app.jobId === jobId)
     if (application) {
-      application.jobState = -1
+      application.jobState = 3
       updateStats()
     }
     
-    alert('申请已拒绝')
+    alert('✅ 面试通过！候选人已进入待录用阶段')
   } catch (error) {
-    console.error('拒绝申请失败:', error)
-    alert('操作失败，请稍后重试')
+    console.error('推进状态失败:', error)
+    if (error.response?.status === 401) {
+      adminStore.logout()
+      router.push('/login')
+    } else {
+      alert('❌ 操作失败，请稍后重试')
+    }
+  }
+}
+
+const pushToState4 = async (email, jobId) => {
+  // 确认操作
+  if (!confirm('确定要标记该候选人为不匹配吗？此操作不可撤销。')) {
+    return
+  }
+  
+  try {
+    await axios.put(`http://localhost:8080/admin/userinfo/push_4?email=${email}&jobId=${jobId}`, null, {
+      headers: { Authorization: adminStore.token }
+    })
+    
+    // 更新本地数据
+    const application = applications.value.find(app => app.email === email && app.jobId === jobId)
+    if (application) {
+      application.jobState = 4
+      updateStats()
+    }
+    
+    alert('⚠️ 已标记为不匹配')
+  } catch (error) {
+    console.error('推进状态失败:', error)
+    if (error.response?.status === 401) {
+      adminStore.logout()
+      router.push('/login')
+    } else {
+      alert('❌ 操作失败，请稍后重试')
+    }
+  }
+}
+
+const pushToState5 = async (email, jobId) => {
+  // 确认操作
+  if (!confirm('确定要标记该候选人为放弃申请吗？')) {
+    return
+  }
+  
+  try {
+    await axios.put(`http://localhost:8080/admin/userinfo/push_5?email=${email}&jobId=${jobId}`, null, {
+      headers: { Authorization: adminStore.token }
+    })
+    
+    // 更新本地数据
+    const application = applications.value.find(app => app.email === email && app.jobId === jobId)
+    if (application) {
+      application.jobState = 5
+      updateStats()
+    }
+    
+    alert('⚠️ 已标记为放弃申请')
+  } catch (error) {
+    console.error('推进状态失败:', error)
+    if (error.response?.status === 401) {
+      adminStore.logout()
+      router.push('/login')
+    } else {
+      alert('❌ 操作失败，请稍后重试')
+    }
+  }
+}
+
+const pushToState6 = async (email, jobId) => {
+  // 确认操作
+  if (!confirm('确定要录用该候选人吗？系统将发送录用通知邮件并完成整个招聘流程。')) {
+    return
+  }
+  
+  try {
+    await axios.put(`http://localhost:8080/admin/userinfo/send_offer?email=${email}&jobId=${jobId}`, null, {
+      headers: { Authorization: adminStore.token }
+    })
+    
+    // 更新本地数据
+    const application = applications.value.find(app => app.email === email && app.jobId === jobId)
+    if (application) {
+      application.jobState = 6
+      updateStats()
+    }
+    
+    alert('🎉 恭喜！录用通知已发送，候选人已被正式录用')
+  } catch (error) {
+    console.error('发送录用通知失败:', error)
+    if (error.response?.status === 401) {
+      adminStore.logout()
+      router.push('/login')
+    } else {
+      alert('❌ 发送录用通知失败，请稍后重试')
+    }
+  }
+}
+
+// 显示面试邀请表单
+const showInterviewForm = (email, jobId, jobName) => {
+  currentInterviewEmail.value = email
+  currentInterviewJobId.value = jobId
+  currentInterviewJobName.value = jobName
+  
+  // 重置表单
+  interviewForm.value = {
+    date: '',
+    time: '',
+    location: '',
+    type: '现场面试'
+  }
+  
+  showInterviewModal.value = true
+}
+
+// 关闭面试邀请表单
+const closeInterviewModal = () => {
+  showInterviewModal.value = false
+  currentInterviewEmail.value = ''
+  currentInterviewJobId.value = null
+  currentInterviewJobName.value = ''
+}
+
+// 发送面试邀请
+const sendInterviewInvitation = async () => {
+  if (!interviewForm.value.date || !interviewForm.value.time || !interviewForm.value.location) {
+    alert('请填写完整的面试信息')
+    return
+  }
+  
+  isSendingInvitation.value = true
+  
+  try {
+    // 调用发送面试邀请接口
+    await axios.put('http://localhost:8080/admin/userinfo/send_invitation', null, {
+      params: {
+        email: currentInterviewEmail.value,
+        jobId: currentInterviewJobId.value,
+        location: interviewForm.value.location,
+        time: interviewForm.value.time,
+        date: interviewForm.value.date
+      },
+      headers: { Authorization: adminStore.token }
+    })
+    
+    // 更新本地数据
+    const application = applications.value.find(app => 
+      app.email === currentInterviewEmail.value && app.jobId === currentInterviewJobId.value
+    )
+    if (application) {
+      application.jobState = 2
+      updateStats()
+    }
+    
+    alert('面试邀请发送成功')
+    closeInterviewModal()
+  } catch (error) {
+    console.error('发送面试邀请失败:', error)
+    alert('发送面试邀请失败，请稍后重试')
+  } finally {
+    isSendingInvitation.value = false
   }
 }
 
@@ -381,18 +713,26 @@ const goBack = () => {
 
 const getStatusClass = (state) => {
   switch (state) {
-    case 0: return 'status-pending'
-    case 1: return 'status-approved'
-    case -1: return 'status-rejected'
+    case 0: return 'status-screening'
+    case 1: return 'status-pending-interview'
+    case 2: return 'status-interview-sent'
+    case 3: return 'status-interview-passed'
+    case 4: return 'status-rejected'
+    case 5: return 'status-abandoned'
+    case 6: return 'status-hired'
     default: return 'status-unknown'
   }
 }
 
 const getStatusText = (state) => {
   switch (state) {
-    case 0: return '待审核'
-    case 1: return '已通过'
-    case -1: return '已拒绝'
+    case 0: return '简历筛选中'
+    case 1: return '待发送面试邀请'
+    case 2: return '已发送面试邀请'
+    case 3: return '面试通过'
+    case 4: return '不匹配'
+    case 5: return '放弃申请'
+    case 6: return '已录用'
     default: return '未知状态'
   }
 }
@@ -740,50 +1080,146 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
-.status-pending { background: #fff5f5; color: #c53030; }
-.status-approved { background: #f0fff4; color: #38a169; }
+.status-screening { background: #fff5f5; color: #c53030; }
+.status-pending-interview { background: #fffaf0; color: #dd6b20; }
+.status-interview-sent { background: #ebf8ff; color: #3182ce; }
+.status-interview-passed { background: #f0fff4; color: #38a169; }
 .status-rejected { background: #fed7d7; color: #e53e3e; }
+.status-abandoned { background: #f7fafc; color: #718096; }
+.status-hired { background: #f0fff4; color: #2f855a; }
 
 .actions {
   display: flex;
+  flex-direction: column;
   gap: 0.5rem;
-  align-items: center;
+  align-items: flex-start;
+  min-width: 200px;
+}
+
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .action-button {
-  width: 32px;
-  height: 32px;
+  padding: 0.5rem 0.75rem;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
   transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.action-button.push-state {
+  background: linear-gradient(135deg, #48dbfb, #0abde3);
+  color: white;
+}
+
+.action-button.push-state:hover {
+  background: linear-gradient(135deg, #0abde3, #0891b2);
+  transform: translateY(-1px);
+}
+
+.action-button.push-state.primary {
+  background: linear-gradient(135deg, #4caf50, #388e3c);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.action-button.push-state.primary:hover {
+  background: linear-gradient(135deg, #388e3c, #2e7d32);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4);
+}
+
+.action-button.interview-invite {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+}
+
+.action-button.interview-invite:hover {
+  background: linear-gradient(135deg, #5a67d8, #6b46c1);
+  transform: translateY(-1px);
 }
 
 .action-button.approve {
-  background: #48dbfb;
+  background: linear-gradient(135deg, #48dbfb, #0abde3);
   color: white;
 }
 
 .action-button.approve:hover {
-  background: #0abde3;
+  background: linear-gradient(135deg, #0abde3, #0891b2);
+  transform: translateY(-1px);
+}
+
+.action-button.hire {
+  background: linear-gradient(135deg, #38a169, #2f855a);
+  color: white;
+  box-shadow: 0 4px 12px rgba(56, 161, 105, 0.3);
+  font-weight: 600;
+}
+
+.action-button.hire:hover {
+  background: linear-gradient(135deg, #2f855a, #276749);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(56, 161, 105, 0.4);
 }
 
 .action-button.reject {
-  background: #ff6b6b;
+  background: linear-gradient(135deg, #ff6b6b, #e53e3e);
   color: white;
 }
 
 .action-button.reject:hover {
-  background: #e53e3e;
+  background: linear-gradient(135deg, #e53e3e, #c53030);
+  transform: translateY(-1px);
 }
 
-.approved-text {
-  color: #38a169;
+.action-button.abandon {
+  background: linear-gradient(135deg, #a0aec0, #718096);
+  color: white;
+}
+
+.action-button.abandon:hover {
+  background: linear-gradient(135deg, #718096, #4a5568);
+  transform: translateY(-1px);
+}
+
+.final-status {
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
   font-weight: 600;
-  font-size: 0.9rem;
+  text-align: center;
+}
+
+.final-status.approved {
+  background: #f0fff4;
+  color: #2f855a;
+  border: 1px solid #9ae6b4;
+}
+
+.final-status.rejected {
+  background: #fed7d7;
+  color: #c53030;
+  border: 1px solid #feb2b2;
+}
+
+.final-status.abandoned {
+  background: #f7fafc;
+  color: #4a5568;
+  border: 1px solid #cbd5e0;
+}
+
+.final-status.hired {
+  background: #f0fff4;
+  color: #276749;
+  border: 1px solid #68d391;
 }
 
 .pagination {
@@ -955,6 +1391,165 @@ onUnmounted(() => {
   font-size: 0.75rem;
 }
 
+/* 面试邀请表单弹窗样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-radius: 16px 16px 0 0;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 50%;
+  transition: background 0.3s ease;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.modal-body {
+  padding: 2rem;
+}
+
+.interview-info {
+  background: rgba(102, 126, 234, 0.1);
+  padding: 1rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.interview-info p {
+  margin: 0.5rem 0;
+  color: #4a5568;
+}
+
+.interview-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: #4a5568;
+  font-size: 0.9rem;
+}
+
+.form-input, .form-textarea {
+  padding: 0.75rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.form-input:focus, .form-textarea:focus {
+  border-color: #667eea;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.cancel-btn {
+  padding: 0.75rem 1.5rem;
+  background: #e2e8f0;
+  color: #4a5568;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.cancel-btn:hover {
+  background: #cbd5e0;
+}
+
+.send-btn {
+  padding: 0.75rem 2rem;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a67d8, #6b46c1);
+  transform: translateY(-1px);
+}
+
+.send-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 /* PDF预览弹窗样式 */
 .pdf-modal-overlay {
   position: fixed;
@@ -1110,6 +1705,28 @@ onUnmounted(() => {
   
   .download-btn {
     flex: 1;
+    justify-content: center;
+  }
+  
+  .modal-content {
+    width: 95%;
+    margin: 1rem;
+  }
+  
+  .modal-header {
+    padding: 1rem 1.5rem;
+  }
+  
+  .modal-body {
+    padding: 1.5rem;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .cancel-btn, .send-btn {
+    width: 100%;
     justify-content: center;
   }
 }
