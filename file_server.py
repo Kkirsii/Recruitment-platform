@@ -353,7 +353,7 @@ def get_default_config():
     """默认配置"""
     return {
         'host': '0.0.0.0',
-        'port': 8080,
+        'port': 8081,
         'allowed_extensions': ['.txt', '.log', '.json', '.yaml', '.yml', '.csv'],
         'max_file_size': 104857600,  # 100MB
         'enable_cors': True,
@@ -378,7 +378,7 @@ def main():
         config = load_config()
     
     host = config.get('host', '0.0.0.0')
-    port = config.get('port', 8080)
+    port = config.get('port', 8081)
     
     logger.info(f"启动文件服务器 - 地址: {host}:{port}")
     logger.info(f"当前工作目录: {os.getcwd()}")

@@ -123,13 +123,13 @@
                 <version>${spring-boot.version}</version>
                 <configuration>
                     <mainClass>com.kkirsii.recruitmentplatform.RecruitmentPlatformApplication</mainClass>
-                    <skip>true</skip>
+
                 </configuration>
                 <executions>
                     <execution>
                         <id>repackage</id>
                         <goals>
-<!--                            <goal>repackage</goal>-->
+                            <goal>repackage</goal>
                         </goals>
                     </execution>
                 </executions>

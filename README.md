@@ -159,10 +159,18 @@ npm run dev
 ```
 
 ### 访问地址
+
+#### 开发环境
 - 用户端: http://localhost:5173
 - 管理员端: http://localhost:5174
 - 后端API: http://localhost:8080
-- 文件服务器: http://localhost:8080
+- 文件服务器: http://localhost:8081
+
+#### 生产环境
+- 用户端: http://115.190.167.70:3000/
+- 管理员端: http://115.190.167.70:3001/
+- 后端API: http://115.190.167.70:8080
+- 文件服务器: http://115.190.167.70:8081
 
 ### 一键启动脚本
 项目提供了便捷的启动脚本：
@@ -190,16 +198,34 @@ stop_frontend.bat
 ### 数据库配置
 在 `RecruitmentPlatform/src/main/resources/application.properties` 中配置数据库连接：
 
+#### 开发环境
 ```properties
 spring.datasource.url=jdbc:mysql://localhost:3306/recruitment_platform
 spring.datasource.username=your_username
 spring.datasource.password=your_password
 ```
 
+#### 生产环境
+```properties
+spring.datasource.url=jdbc:mysql://115.190.167.70:3306/rp
+spring.datasource.username=your_username
+spring.datasource.password=your_password
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+```
+
 ### Redis配置
+#### 开发环境
 ```properties
 spring.data.redis.host=localhost
 spring.data.redis.port=6379
+```
+
+#### 生产环境
+```properties
+spring.data.redis.host=115.190.167.70
+spring.data.redis.port=6379
+spring.data.redis.password=your_redis_password
+spring.data.redis.timeout=2000
 ```
 
 ### 文件服务器配置
@@ -216,12 +242,15 @@ Path:
 
 ```properties
 # 邮件服务配置
-spring.mail.host=smtp.qq.com
-spring.mail.port=587
 spring.mail.username=your_email@qq.com
 spring.mail.password=your_email_password
+spring.mail.host=smtp.qq.com
+spring.mail.port=587
+spring.mail.protocol=smtp
+spring.mail.default-encoding=UTF-8
 spring.mail.properties.mail.smtp.auth=true
 spring.mail.properties.mail.smtp.starttls.enable=true
+spring.mail.properties.mail.smtp.starttls.required=true
 ```
 
 ## 📋 API 接口
@@ -250,7 +279,8 @@ spring.mail.properties.mail.smtp.starttls.enable=true
 - `PUT /admin/userinfo/push_5` - 标记放弃申请
 
 ### WebSocket接口
-- `ws://localhost:8080/chat` - 实时聊天
+- `ws://localhost:8080/chat` - 实时聊天（开发环境）
+- `ws://115.190.167.70:8080/chat` - 实时聊天（生产环境）
 
 ## 🎨 界面预览
 
@@ -301,11 +331,77 @@ spring.mail.properties.mail.smtp.starttls.enable=true
 ## 🚀 部署说明
 
 ### 生产环境部署
-1. 构建前端项目
-2. 打包后端应用
-3. 配置Nginx反向代理
-4. 设置SSL证书
-5. 配置数据库和Redis
+
+#### 服务器信息
+- **服务器地址**: 115.190.167.70
+- **用户端端口**: 3000
+- **管理员端端口**: 3001
+- **后端API端口**: 8080
+- **文件服务器端口**: 8081
+
+#### 部署步骤
+1. **构建前端项目**
+   ```bash
+   # 用户端
+   cd rp-frontend
+   npm run build
+   
+   # 管理员端
+   cd admin-frontend
+   npm run build
+   ```
+
+2. **打包后端应用**
+   ```bash
+   cd RecruitmentPlatform
+   mvn clean package
+   ```
+
+3. **部署到服务器**
+   - 将构建好的前端文件上传到服务器
+   - 将后端JAR包上传到服务器
+   - 配置文件服务器
+
+4. **启动服务**
+   ```bash
+   # 启动后端服务
+   java -jar RecruitmentPlatform-0.0.1-SNAPSHOT.jar
+   
+   # 启动文件服务器
+   python3 file_server.py
+   
+   # 启动前端服务（使用PM2或类似工具）
+   pm2 start "serve -s dist -l 3000" --name "user-frontend"
+   pm2 start "serve -s dist -l 3001" --name "admin-frontend"
+   ```
+
+5. **配置Nginx反向代理**（可选）
+   ```nginx
+   server {
+       listen 80;
+       server_name your-domain.com;
+       
+       location / {
+           proxy_pass http://115.190.167.70:3000;
+       }
+       
+       location /admin {
+           proxy_pass http://115.190.167.70:3001;
+       }
+       
+       location /api {
+           proxy_pass http://115.190.167.70:8080;
+       }
+   }
+   ```
+
+6. **设置SSL证书**（推荐）
+   - 使用Let's Encrypt免费SSL证书
+   - 配置HTTPS访问
+
+7. **配置数据库和Redis**
+   - 确保MySQL和Redis服务正常运行
+   - 配置生产环境数据库连接
 
 ## 🤝 贡献指南
 
@@ -319,6 +415,73 @@ spring.mail.properties.mail.smtp.starttls.enable=true
 
 MIT License
 
+## 🌐 在线演示
+
+### 生产环境访问
+- **用户端**: [http://115.190.167.70:3000/](http://115.190.167.70:3000/)
+- **管理员端**: [http://115.190.167.70:3001/](http://115.190.167.70:3001/)
+
+### 测试账号
+#### 用户端测试账号
+- 邮箱: `test@example.com`
+- 密码: `请咨询管理员获取测试账号`
+
+#### 管理员端测试账号
+- 邮箱: `admin@example.com`
+- 密码: `请咨询管理员获取测试账号`
+
+## 🔒 安全说明
+
+### 敏感信息保护
+- 生产环境密码和密钥信息已从文档中移除
+- 实际部署时请使用环境变量或配置文件管理敏感信息
+- 建议使用强密码并定期更换
+- 启用HTTPS加密传输
+
+### 环境变量配置示例
+```bash
+# 数据库配置
+export DB_HOST=115.190.167.70
+export DB_USERNAME=your_username
+export DB_PASSWORD=your_password
+
+# Redis配置
+export REDIS_HOST=115.190.167.70
+export REDIS_PASSWORD=your_redis_password
+
+# 邮件配置
+export MAIL_USERNAME=your_email@qq.com
+export MAIL_PASSWORD=your_email_password
+```
+
 ## 📞 联系方式
 
 如有问题或建议，请联系项目维护者。
+
+## 🔧 故障排除
+
+### 常见问题
+1. **前端无法访问后端API**
+   - 检查后端服务是否正常运行
+   - 确认端口配置正确
+   - 检查CORS配置
+
+2. **文件上传失败**
+   - 确认文件服务器是否启动
+   - 检查文件大小限制
+   - 验证文件格式是否支持
+
+3. **邮件发送失败**
+   - 检查邮件服务配置
+   - 确认SMTP服务器设置
+   - 验证邮箱账号和密码
+
+4. **数据库连接失败**
+   - 检查数据库服务状态
+   - 确认连接参数正确
+   - 验证数据库用户权限
+
+### 日志查看
+- 后端日志: `RecruitmentPlatform/logs/`
+- 文件服务器日志: `file_server.log`
+- 前端构建日志: 控制台输出

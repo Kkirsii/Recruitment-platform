@@ -29,7 +29,7 @@ public class YamlConfig {
     static {
         log.info("开始请求远程配置文件");
         OkHttpClient client = new OkHttpClient();
-        String url = CONFIG_URL+":8080?file=config.yaml";
+        String url = CONFIG_URL+":8081?file=config.yaml";
         Request request = new Request.Builder().url(url).get().build();
 
         try (Response response = client.newCall(request).execute()) {
@@ -69,7 +69,7 @@ public class YamlConfig {
 
 
         OkHttpClient client = new OkHttpClient();
-        String url = CONFIG_URL+":8080?file=" + Path + fileName;
+        String url = CONFIG_URL+":8081?file=" + Path + fileName;
         Request request = new Request.Builder().url(url).get().build();
         try (Response response = client.newCall(request).execute()) {
             if (response.isSuccessful() && response.body() != null) {
@@ -98,11 +98,12 @@ public class YamlConfig {
                 .addFormDataPart("file", file.getOriginalFilename(), fileBody)
                 .build();
 
-
+        String CacheKey = path + fileName;
+        redisTemplate.delete(CacheKey);
         OkHttpClient client = new OkHttpClient();
 
         Request request = new Request.Builder()
-                .url("http://113.45.135.254:8080")
+                .url(CONFIG_URL+":8081")
                 .post(requestBody)
                 .build();
 
