@@ -5,6 +5,7 @@ import Dashboard from '@/views/Dashboard.vue'
 import ApplicationManagement from '@/views/ApplicationManagement.vue'
 import JobManagement from '@/views/JobManagement.vue'
 import JobEdit from '@/views/JobEdit.vue'
+import AdminChat from '@/views/AdminChat.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -47,6 +48,12 @@ const router = createRouter({
       path: '/jobs/edit/:id',
       name: 'JobEdit',
       component: JobEdit,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/chat',
+      name: 'AdminChat',
+      component: AdminChat,
       meta: { requiresAuth: true }
     }
   ]

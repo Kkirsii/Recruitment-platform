@@ -4,6 +4,10 @@
       <h1 class="dashboard-title">管理仪表板</h1>
       <div class="user-info">
         <span>欢迎，{{ adminStore.adminInfo?.email }}</span>
+        <button @click="goToChat" class="chat-button">
+          <i class="fas fa-comments"></i>
+          在线聊天
+        </button>
         <button @click="handleLogout" class="logout-button">
           <i class="fas fa-sign-out-alt"></i>
           退出登录
@@ -141,6 +145,10 @@ const handleLogout = () => {
   router.push('/login')
 }
 
+const goToChat = () => {
+  router.push('/chat')
+}
+
 const navigateToJobPublish = () => {
   router.push('/job-publish')
 }
@@ -217,6 +225,26 @@ onMounted(() => {
 .user-info span {
   color: #4a5568;
   font-weight: 500;
+}
+
+.chat-button {
+  background: #38a169;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  margin-right: 0.5rem;
+}
+
+.chat-button:hover {
+  background: #2f855a;
+  transform: translateY(-1px);
 }
 
 .logout-button {
